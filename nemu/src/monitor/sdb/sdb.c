@@ -12,17 +12,19 @@
 *
 * See the Mulan PSL v2 for more details.
 ***************************************************************************************/
-
+#include <memory/paddr.h>
 #include <isa.h>
 #include <cpu/cpu.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
 
+
 static int is_batch_mode = false;
 
 void init_regex();
 void init_wp_pool();
+word_t expr(char *e, bool *success);
 
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
@@ -49,7 +51,57 @@ static int cmd_c(char *args) {
 
 
 static int cmd_q(char *args) {
+  nemu_state.state = NEMU_QUIT;
   return -1;
+}
+
+static int cmd_si(char *args) {
+  int step = 1;
+  if(args != NULL) {
+    sscanf(args, "%d", &step);
+  }
+  cpu_exec(step);
+  return 0;
+}
+
+static int cmd_info(char *args) {
+  if(args == NULL) {
+    printf("请选择打印内容\n");
+    return 0;
+  }
+  char op;
+  sscanf(args , "%c", &op);
+  if(op == 'r') {
+    isa_reg_display();
+  }
+  return 0;
+}
+
+static int cmd_x(char *args) {
+  if(args == NULL) {
+    printf("请输入内存地址\n");
+    return 0;
+  }
+  int num;
+  uint32_t addr;
+  sscanf(args , "%d %lx", &num, &addr);
+  for(int i = 0; i < num; i++) {
+    printf("%08x  %08x\n", addr+i*4, (int)paddr_read(addr+i*4, 4));
+  }
+
+  
+  return 0;
+}
+
+static int cmd_p(char *args) {
+  if(args == NULL) {
+    printf("请输入表达式\n");
+    return 0;
+  }
+  bool mark = true;
+  printf("%lx\n",expr(args, &mark));
+  
+  return 0;
 }
 
 static int cmd_help(char *args);
@@ -62,6 +114,10 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
+  { "si", "single execute", cmd_si},
+  { "info", "print reg", cmd_info},
+  { "x", "scan mem", cmd_x},
+  { "p", "expr value", cmd_p},
 
   /* TODO: Add more commands */
 
