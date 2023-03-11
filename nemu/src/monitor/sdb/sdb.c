@@ -84,7 +84,7 @@ static int cmd_x(char *args) {
   }
   int num;
   uint32_t addr;
-  sscanf(args , "%d %lx", &num, &addr);
+  sscanf(args , "%d %x", &num, &addr);
   for(int i = 0; i < num; i++) {
     printf("%08x  %08x\n", addr+i*4, (int)paddr_read(addr+i*4, 4));
   }

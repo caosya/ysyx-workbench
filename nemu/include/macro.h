@@ -29,6 +29,7 @@
 #define ARRLEN(arr) (int)(sizeof(arr) / sizeof(arr[0]))
 
 // macro concatenation
+//x ## y连接符 变量则为xy, 2 ## 5则为25
 #define concat_temp(x, y) x ## y
 #define concat(x, y) concat_temp(x, y)
 #define concat3(x, y, z) concat(concat(x, y), z)
@@ -85,6 +86,8 @@
 
 #define BITMASK(bits) ((1ull << (bits)) - 1)
 #define BITS(x, hi, lo) (((x) >> (lo)) & BITMASK((hi) - (lo) + 1)) // similar to x[hi:lo] in verilog
+//len为进行符号位扩展数据的长度，先划定一块区域，将其强制转换为64位有符号数,
+//最后的强制转换不可去，_x.n是位域，只能表示len长度的范围 如SEXT(0xfffffff7,32) 去了后面的强制转换，则为0xfffffff7，不去则为0xfffffffffffffff7
 #define SEXT(x, len) ({ struct { int64_t n : len; } __x = { .n = x }; (uint64_t)__x.n; })
 
 #define ROUNDUP(a, sz)   ((((uintptr_t)a) + (sz) - 1) & ~((sz) - 1))

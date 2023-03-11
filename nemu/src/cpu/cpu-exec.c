@@ -30,11 +30,20 @@ uint64_t g_nr_guest_inst = 0;
 static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
 
+#define IRINGBUF_LINES 64
+#define IRINGBUF_LENGTH 64
+
+char iringbuf[IRINGBUF_LINES][IRINGBUF_LENGTH];
+long iringbuf_end = 0;
+
 void device_update();
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
+
+  strncpy(iringbuf[iringbuf_end % IRINGBUF_LINES], _this->logbuf, IRINGBUF_LENGTH);
+  iringbuf_end++;
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
@@ -118,7 +127,20 @@ void cpu_exec(uint64_t n) {
            (nemu_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) :
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           nemu_state.halt_pc);
+      statistic();
+      #ifdef CONFIG_ITRACE
+      if(nemu_state.halt_ret != 0  || nemu_state.state !=  NEMU_END) {
+        int i;
+        int error_locate = (iringbuf_end - 1) % IRINGBUF_LINES;
+        for(i = 0; i < 64 && iringbuf[i][0] != '\0'; i++) {
+          if(error_locate == i) {
+            printf("--> %s\n", iringbuf[i]);
+          }else printf("    %s\n", iringbuf[i]);
+        }
+      }
+      #endif
+      // break;
       // fall through
-    case NEMU_QUIT: statistic();
+    // default:;
   }
 }
