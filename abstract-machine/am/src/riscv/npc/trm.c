@@ -3,7 +3,7 @@
 
 extern char _heap_start;
 int main(const char *args);
-
+# define nemu_trap(code) asm volatile("mv a0, %0; ebreak" : :"r"(code))
 extern char _pmem_start;
 #define PMEM_SIZE (128 * 1024 * 1024)
 #define PMEM_END  ((uintptr_t)&_pmem_start + PMEM_SIZE)
@@ -18,6 +18,7 @@ void putch(char ch) {
 }
 
 void halt(int code) {
+  nemu_trap(code);
   while (1);
 }
 

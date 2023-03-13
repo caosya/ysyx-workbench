@@ -51,6 +51,8 @@ extern char *img_file;
 extern int vga_update_flag;
 
 void cpu_exec(word_t n);
+void isa_reg_display();
+extern const char *regs[];
 
 // ----------- log -----------
 

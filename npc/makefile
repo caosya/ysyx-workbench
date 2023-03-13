@@ -6,11 +6,11 @@ CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*
 
 # CFLAGS += $(shell llvm-config --cxxflags) -fPIE -I $(NPC_HOME)/csrc/include
 # LDFLAGS += -lSDL2 -lSDL2_image -lreadline -ldl $(shell llvm-config --libs)
-CFLAGS +=  -fPIE -I $(NPC_HOME)/csrc/include
+CFLAGS +=  $(shell llvm-config --cxxflags) -fPIE -I $(NPC_HOME)/csrc/include
 LDFLAGS +=  -lreadline -ldl $(shell llvm-config --libs)
 
-# DIFF_REF_SO = $(NEMU_HOME)/build/riscv64-nemu-interpreter-so
-# ARGS += -d $(DIFF_REF_SO)
+DIFF_REF_SO = $(NEMU_HOME)/build/riscv64-nemu-interpreter-so
+ARGS += -d $(DIFF_REF_SO)
 IMG ?=
 
 all:
@@ -20,7 +20,7 @@ sim:  $(VSRCS) $(CSRCS)
 	verilator  --cc --exe --trace --build \
 	--top-module $(TOPNAME) $^ \
 	$(addprefix -CFLAGS , $(CFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) 
-	$(NPC_HOME)/obj_dir/Vtop $(IMG)
+	$(NPC_HOME)/obj_dir/Vtop -b -d $(DIFF_REF_SO) $(IMG)
 # $(NPC_HOME)/obj_dir/Vtop -d $(DIFF_REF_SO) $(IMG) 
 # gtkwave wave.vcd
 
@@ -35,3 +35,5 @@ clean:
 .PHONY: default all clean run
 
 include ../Makefile
+
+

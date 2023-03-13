@@ -1,10 +1,11 @@
 #include <getopt.h>
 #include <common.h>
 #include "monitor.h"
-// #include "../difftest/dut.h"
+#include "../difftest/dut.h"
+#include "sdb/sdb.h"
 
-// static char *diff_so_file = NULL;
-// static int difftest_port = 1234;
+static char *diff_so_file = NULL;
+static int difftest_port = 1234;
 
 char *img_file = NULL;
 static long load_img() {
@@ -45,11 +46,11 @@ static int parse_args(int argc, char *argv[]) {
   while ( (o = getopt_long(argc, argv, "-bhl:d:p:e:", table, NULL)) != -1) {
     printf("++++++++++++++++++++++++++++\n");
     switch (o) {
-      // case 'b': sdb_set_batch_mode(); break;
+      case 'b': sdb_set_batch_mode(); break;
       // case 'p': sscanf(optarg, "%d", &difftest_port); break;
       // case 'e': elf_file = optarg; break;
       // case 'l': log_file = optarg; break;
-    //   case 'd': diff_so_file = optarg;printf("=====%s\n",optarg); break;
+      case 'd': diff_so_file = optarg;printf("=====%s\n",optarg); break;
       case 1: img_file = optarg; printf("=====%s\n",optarg);return 0;
       default:
         printf("Usage: %s [OPTION...] IMAGE [args]\n\n", argv[0]);
@@ -75,9 +76,7 @@ void init_monitor(int argc, char *argv[]) {
   long img_size = load_img();
 
   /* Initialize differential testing. */
-//   init_difftest(diff_so_file, img_size, difftest_port);
+  init_difftest(diff_so_file, img_size, difftest_port);
 
-
-  
 
 }

@@ -9,12 +9,11 @@
 #include <common.h>
 #include "monitor/monitor.h"
 
-// #include "difftest/dut.h"
+
+#include "difftest/dut.h"
 
 // #include "device/vga.h"
-
-
-// #include "memory/memory.h"
+#define MAX_INST_TO_PRINT 10
 
   static const uint32_t img [] = {
   0x00000297,  // auipc t0,0
@@ -27,10 +26,11 @@
 void init_disasm(const char *triple);
 
 word_t *cpu_gpr = NULL;
+static bool g_print_step = false;
 
-// extern "C" void set_gpr_ptr(const svOpenArrayHandle r) {
-//   cpu_gpr = (uint64_t *)(((VerilatedDpiOpenVar*)r)->datap());
-// }
+void set_gpr_ptr(const svOpenArrayHandle r) {
+  cpu_gpr = (uint64_t *)(((VerilatedDpiOpenVar*)r)->datap());
+}
 
 Vtop* dut = new Vtop("top");
 NPCState npc_state;
@@ -127,7 +127,15 @@ static void reset(int n) {
   while (n-- > 0) {
     single_cycle();
   }
+  dut->clk = 1; 
+  // dut->rst = 0;
+  dut->eval();
   dut->rst_n = 1;
+  dut->eval();
+  tfp->dump(times++);
+  dut->clk = 0; 
+  dut->eval();
+  tfp->dump(times++); 
 }
 
 int vga_update_flag = 1;
@@ -149,13 +157,14 @@ void set_iring_buf(word_t pc, uint32_t* instr) {
   memset(itrace, ' ', 1);
   itrace += 1;
   void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
-  // disassemble(itrace, logbuf + sizeof(logbuf) - itrace-1, (uint64_t)pc, (uint8_t *)instr, 4);
+  disassemble(itrace, logbuf + sizeof(logbuf) - itrace-1, (uint64_t)pc, (uint8_t *)instr, 4);
 
   strncpy(iringbuf[iringbuf_end % IRINGBUF_LINES], logbuf, IRINGBUF_LENGTH);
   iringbuf_end++;
-  for(int i = 0; i < 64 && iringbuf[i][0] != '\0'; i++) {
-    printf("=======%s\n", iringbuf[i]);
-  }
+  // for(int i = 0; i < 64 && logbuf[i] != '\0'; i++) {
+    if(g_print_step)
+      printf("=======%s\n", logbuf);
+  // }
 }
 
 #define NPCTRAP(thispc, code) set_NPC_state(NPC_END, thispc, code)
@@ -181,19 +190,29 @@ void execute(word_t n) {
     // printf("======test======\n");
     instr_count++; //统计已经执行的指令条数
 
-    // word_t pc_old = dut->pc;
+    word_t pc_old = dut->pc;
     // bool flag = dut->pc1 == dut->pc2;
     uint32_t instr;
-    instr = img[(dut->pc-MEM_BASE)/4];
-    dut->instr = instr;
+    // instr = img[(dut->pc-MEM_BASE)/4];
+     instr = dut->instr;
+
     single_cycle(); 
+    cpu.pc = dut->pc;
     // cpu.pc = dut->pc;
 
     //Itrace  
-    // set_iring_buf(pc_old, &instr);
-    // printf("pc:%x\n",dut->pc);
+    set_iring_buf(pc_old, &instr);
+      // if(g_print_step)
+      
+    
 
     // Difftest
+        // if(instr_count > 1) {
+        // printf("pc_old:%x\n",pc_old);
+        // printf("pc_new:%x\n",cpu.pc);
+        difftest_step(pc_old , cpu.pc);
+        instr_count_origin++;
+        // } 
     // if(instr_count > 2 && flag) {
     //   difftest_step(pc_old , cpu.pc);
     //   instr_count_origin++;
@@ -210,6 +229,7 @@ void execute(word_t n) {
 }
 
 void cpu_exec(word_t n) {
+  g_print_step = (n < MAX_INST_TO_PRINT);
 
   //初始化npc_state
   switch(npc_state.state) {
@@ -221,6 +241,8 @@ void cpu_exec(word_t n) {
 
   execute(n);
 
+  // isa_reg_display();
+
   switch (npc_state.state){
     case NPC_RUNNING: npc_state.state = NPC_STOP; break;
 
@@ -230,14 +252,14 @@ void cpu_exec(word_t n) {
            (npc_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) :
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           npc_state.halt_pc);
-    //   if(npc_state.halt_ret != 0) {
-    //     int error_locate = (iringbuf_end - 1) % IRINGBUF_LINES;
-    //     for(int i = 0; i < 64 && iringbuf[i][0] != '\0'; i++) {
-    //       if(error_locate == i) {
-    //         printf("--> %s\n", iringbuf[i]);
-    //       }else printf("    %s\n", iringbuf[i]);
-    //     }
-    //   }
+      if(npc_state.halt_ret != 0) {
+        int error_locate = (iringbuf_end - 1) % IRINGBUF_LINES;
+        for(int i = 0; i < 64 && iringbuf[i][0] != '\0'; i++) {
+          if(error_locate == i) {
+            printf("--> %s\n", iringbuf[i]);
+          }else printf("    %s\n", iringbuf[i]);
+        }
+      }
       break;
     case NPC_QUIT:break;
 
@@ -257,10 +279,10 @@ int main(int argc, char *argv[]) {
   // init_screen();
 
   //初始化
-//   for( int i = 0; i < 32; i++) {
-//       cpu.gpr[i] = 0;
-//   }
-//   cpu.pc = MEM_BASE;
+  for( int i = 0; i < 32; i++) {
+      cpu.gpr[i] = 0;
+  }
+  cpu.pc = MEM_BASE;
 
   init_disasm("riscv64-pc-linux-gnu");
 
@@ -274,10 +296,9 @@ int main(int argc, char *argv[]) {
   // for(int i = 0; i < 20; i++){
   //   printf("=====%02x====\n",mem[i]);
   // }
-  reset(2);
+  reset(1);
   // printf("=======\n");
-//   sdb_mainloop();
-  cpu_exec(10);
+  sdb_mainloop();
 
   dut->final();
   tfp->close();
