@@ -12,8 +12,8 @@
 
 #include "difftest/dut.h"
 
-// #include "device/vga.h"
-#define MAX_INST_TO_PRINT 10
+#include "device/vga.h"
+#define MAX_INST_TO_PRINT 100
 
   static const uint32_t img [] = {
   0x00000297,  // auipc t0,0
@@ -33,6 +33,7 @@ void set_gpr_ptr(const svOpenArrayHandle r) {
 }
 
 Vtop* dut = new Vtop("top");
+u_int8_t* rd_wr =&( dut->rd_wr);
 NPCState npc_state;
 CPU_state cpu;
 u_int8_t mem[MEM_SIZE] = {};
@@ -191,6 +192,7 @@ void execute(word_t n) {
     instr_count++; //统计已经执行的指令条数
 
     word_t pc_old = dut->pc;
+    // printf("pc_old:%x\n",pc_old);
     // bool flag = dut->pc1 == dut->pc2;
     uint32_t instr;
     // instr = img[(dut->pc-MEM_BASE)/4];
@@ -207,11 +209,12 @@ void execute(word_t n) {
     
 
     // Difftest
+        difftest_step(pc_old , cpu.pc);
+        instr_count_origin++;
+
         // if(instr_count > 1) {
         // printf("pc_old:%x\n",pc_old);
         // printf("pc_new:%x\n",cpu.pc);
-        difftest_step(pc_old , cpu.pc);
-        instr_count_origin++;
         // } 
     // if(instr_count > 2 && flag) {
     //   difftest_step(pc_old , cpu.pc);
@@ -221,7 +224,7 @@ void execute(word_t n) {
     if(npc_state.state != NPC_RUNNING) break;
 
 
-    // vga_update_screen();
+    vga_update_screen();
 
   }
   printf("======npc已经执行======%ld条指令当前PC=%lx\n",instr_count, dut->pc);

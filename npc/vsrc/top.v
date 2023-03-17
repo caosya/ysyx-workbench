@@ -1,12 +1,13 @@
 module top(
     input clk,
     input rst_n,
+    output rd_wr,
     output reg [63:0] pc,
     output reg [31:0] instr
 );
 
 
-
+assign rd_wr = MemRead | MemWrite;
 //控制信号
 wire [6:0]opcode;
 wire [2:0]func3;
@@ -175,6 +176,7 @@ Reg reg_inst(
 );
 
 Mem my_mem(
+    .clk(clk),
     .MemRead(MemRead),
     .MemWrite(MemWrite),
     .func3(func3),

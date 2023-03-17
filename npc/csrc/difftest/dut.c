@@ -111,6 +111,7 @@ static void checkregs(CPU_state *ref, word_t pc, word_t npc) {
 
 void difftest_step(word_t pc, word_t npc) {
   CPU_state ref_r;
+  write_cpu_regs();
 
     //NEMU的简化会导致某些指令的行为与REF有所差异, 因而无法进行对比.
     // 为了解决这个问题, 框架中准备了difftest_skip_ref()和difftest_skip_dut()这两个函数:比如nemu_trap,无法与spike...一致
@@ -137,8 +138,6 @@ void difftest_step(word_t pc, word_t npc) {
   ref_difftest_exec(1);
 
   ref_difftest_regcpy(&ref_r, DIFFTEST_TO_DUT);
-
-  write_cpu_regs();
 
   checkregs(&ref_r, pc, npc);
 }

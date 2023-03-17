@@ -4,4 +4,6 @@
 void difftest_step(u_int64_t pc, u_int64_t npc);
 
 void init_difftest(char *ref_so_file, long img_size, int port);
+
+void difftest_skip_ref();
 #endif

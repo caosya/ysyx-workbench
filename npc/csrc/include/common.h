@@ -79,4 +79,6 @@ extern const char *regs[];
 
 #define FMT_WORD "0x%016lx"
 
+extern u_int8_t* rd_wr;
+
 #endif
