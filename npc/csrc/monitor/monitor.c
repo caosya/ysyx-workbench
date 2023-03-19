@@ -62,7 +62,6 @@ static int parse_args(int argc, char *argv[]) {
         exit(0);
     }
   }
-  printf("++++++++++++++++++++000++++++++\n");
   return 0;
 }
 
@@ -76,7 +75,9 @@ void init_monitor(int argc, char *argv[]) {
   long img_size = load_img();
 
   /* Initialize differential testing. */
-  init_difftest(diff_so_file, img_size, difftest_port);
+  #ifdef DIFFTEST
+    init_difftest(diff_so_file, img_size, difftest_port);
+  #endif
 
 
 }

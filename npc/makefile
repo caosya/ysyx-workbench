@@ -20,7 +20,7 @@ sim:  $(VSRCS) $(CSRCS)
 	verilator -Wno-fatal --cc --exe --trace --build \
 	--top-module $(TOPNAME) $^ \
 	$(addprefix -CFLAGS , $(CFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) 
-	$(NPC_HOME)/obj_dir/Vtop   -d $(DIFF_REF_SO) $(IMG)
+	$(NPC_HOME)/obj_dir/Vtop -b  -d $(DIFF_REF_SO) $(IMG)
 # $(NPC_HOME)/obj_dir/Vtop -d $(DIFF_REF_SO) $(IMG) 
 # gtkwave wave.vcd
 

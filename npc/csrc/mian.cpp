@@ -11,8 +11,8 @@
 
 
 #include "difftest/dut.h"
-
 #include "device/vga.h"
+
 #define MAX_INST_TO_PRINT 100
 
   static const uint32_t img [] = {
@@ -27,6 +27,7 @@ void init_disasm(const char *triple);
 
 word_t *cpu_gpr = NULL;
 static bool g_print_step = false;
+static uint64_t g_timer = 0; // unit: us
 
 void set_gpr_ptr(const svOpenArrayHandle r) {
   cpu_gpr = (uint64_t *)(((VerilatedDpiOpenVar*)r)->datap());
@@ -38,8 +39,10 @@ NPCState npc_state;
 CPU_state cpu;
 u_int8_t mem[MEM_SIZE] = {};
 u_int8_t fb[FB_SIZE] = {};
+#ifdef WAVE
+  VerilatedVcdC* tfp = new VerilatedVcdC; //导出vcd波形需要加此语句 
+#endif
 
-VerilatedVcdC* tfp = new VerilatedVcdC; //导出vcd波形需要加此语句 
 
 
 /*********************************************/
@@ -109,10 +112,14 @@ void single_cycle() {
   dut->clk = 1; 
   // dut->rst = 0;
   dut->eval();
-  tfp->dump(times++);
+  #ifdef WAVE
+    tfp->dump(times++);
+  #endif
   dut->clk = 0; 
   dut->eval();
-  tfp->dump(times++); 
+  #ifdef WAVE
+    tfp->dump(times++);
+  #endif
 }
 
 static void reset(int n) {
@@ -133,10 +140,14 @@ static void reset(int n) {
   dut->eval();
   dut->rst_n = 1;
   dut->eval();
-  tfp->dump(times++);
+  #ifdef WAVE
+    tfp->dump(times++);
+  #endif
   dut->clk = 0; 
   dut->eval();
-  tfp->dump(times++); 
+  #ifdef WAVE
+    tfp->dump(times++);
+  #endif
 }
 
 int vga_update_flag = 1;
@@ -184,51 +195,54 @@ void break_exec(int code){
   NPCTRAP(dut->pc, code);
 }
 
+static uint64_t get_time() {
+  struct timespec now;
+  clock_gettime(CLOCK_REALTIME,&now);
+  return now.tv_sec * 1000000 + now.tv_nsec / 1000;
+}
+
 void execute(word_t n) {
   // int dif_time = 0;
-  int instr_count_origin = 0;
+  word_t instr_count_origin = 0;
   for(int i = 0; i < n; i++) {
     // printf("======test======\n");
     instr_count++; //统计已经执行的指令条数
 
     word_t pc_old = dut->pc;
     // printf("pc_old:%x\n",pc_old);
-    // bool flag = dut->pc1 == dut->pc2;
-    uint32_t instr;
-    // instr = img[(dut->pc-MEM_BASE)/4];
-     instr = dut->instr;
-
-    single_cycle(); 
-    cpu.pc = dut->pc;
+    // bool flag = dut->pc1 == dut->pc2
     // cpu.pc = dut->pc;
 
     //Itrace  
-    set_iring_buf(pc_old, &instr);
-      // if(g_print_step)
+    #ifdef ITRACE
+      uint32_t instr;
+      instr = dut->instr;
+      set_iring_buf(pc_old, &instr);
+    #endif
       
-    
+      single_cycle(); 
+      cpu.pc = dut->pc;
 
     // Difftest
+      #ifdef DIFFTEST
         difftest_step(pc_old , cpu.pc);
         instr_count_origin++;
-
-        // if(instr_count > 1) {
-        // printf("pc_old:%x\n",pc_old);
-        // printf("pc_new:%x\n",cpu.pc);
-        // } 
+      #endif
     // if(instr_count > 2 && flag) {
     //   difftest_step(pc_old , cpu.pc);
     //   instr_count_origin++;
     // }   
 
     if(npc_state.state != NPC_RUNNING) break;
-
-
-    vga_update_screen();
+    #ifdef DEVICE
+      vga_update_screen();
+    #endif
 
   }
   printf("======npc已经执行======%ld条指令当前PC=%lx\n",instr_count, dut->pc);
-  printf("======nemu已经执行======%ld条指令当前PC=%lx\n",instr_count_origin, dut->pc);
+  #ifdef DIFFTEST
+    printf("======nemu已经执行======%ld条指令当前PC=%lx\n",instr_count_origin, dut->pc);
+  #endif
 }
 
 void cpu_exec(word_t n) {
@@ -241,10 +255,10 @@ void cpu_exec(word_t n) {
       return;
     default : npc_state.state = NPC_RUNNING;
   }
-
+  uint64_t timer_start = get_time();
   execute(n);
-
-  // isa_reg_display();
+  uint64_t timer_end = get_time();
+  g_timer += timer_end - timer_start;
 
   switch (npc_state.state){
     case NPC_RUNNING: npc_state.state = NPC_STOP; break;
@@ -255,14 +269,17 @@ void cpu_exec(word_t n) {
            (npc_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) :
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           npc_state.halt_pc);
-      if(npc_state.halt_ret != 0) {
-        int error_locate = (iringbuf_end - 1) % IRINGBUF_LINES;
-        for(int i = 0; i < 64 && iringbuf[i][0] != '\0'; i++) {
-          if(error_locate == i) {
-            printf("--> %s\n", iringbuf[i]);
-          }else printf("    %s\n", iringbuf[i]);
+      if (g_timer > 0)  printf(ANSI_FMT("simulation frequency = %d inst/s\n", ANSI_FG_BLUE), instr_count *1000000/g_timer);
+      #ifdef ITRACE
+        if(npc_state.halt_ret != 0) {
+          int error_locate = (iringbuf_end - 1) % IRINGBUF_LINES;
+          for(int i = 0; i < 64 && iringbuf[i][0] != '\0'; i++) {
+            if(error_locate == i) {
+              printf("--> %s\n", iringbuf[i]);
+            }else printf("    %s\n", iringbuf[i]);
+          }
         }
-      }
+      #endif
       break;
     case NPC_QUIT:break;
 
@@ -274,37 +291,31 @@ int main(int argc, char *argv[]) {
 
   Verilated::commandArgs(argc, argv); 
 
-//波形
-  Verilated::traceEverOn(true); //导出vcd波形需要加此语句 
-  dut->trace(tfp, 0);   
-  tfp->open("wave.vcd"); //打开vcd
-  
-  // init_screen();
+  //波形
+  #ifdef WAVE
+    Verilated::traceEverOn(true); //导出vcd波形需要加此语句 
+    dut->trace(tfp, 0);   
+    tfp->open("wave.vcd"); //打开vcd
+  #endif
+  #ifdef DEVICE
+    init_screen();
+  #endif
 
   //初始化
   for( int i = 0; i < 32; i++) {
       cpu.gpr[i] = 0;
   }
   cpu.pc = MEM_BASE;
-
-  init_disasm("riscv64-pc-linux-gnu");
-
-
+  #ifdef ITRACE
+    init_disasm("riscv64-pc-linux-gnu");
+  #endif
   init_monitor(argc, argv);
-
-
-  // init_sim_mem();
-
-  //打印当前用户程序的指令
-  // for(int i = 0; i < 20; i++){
-  //   printf("=====%02x====\n",mem[i]);
-  // }
   reset(1);
-  // printf("=======\n");
   sdb_mainloop();
-
   dut->final();
-  tfp->close();
+  #ifdef WAVE
+    tfp->close();
+  #endif
   delete dut;
   return 0;
 }

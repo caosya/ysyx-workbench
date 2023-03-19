@@ -1,8 +1,6 @@
 #include <cassert>
 #include <common.h>
 #include "verilated_dpi.h"
-#include <time.h>
-#include <sys/time.h>
 #include "../device/vga.h"
 #include "../difftest/dut.h"
 
@@ -67,12 +65,14 @@ static struct timespec origin_time;
 extern "C" void pmem_read(long long raddr, long long *rdata) {
   // 总是读取地址为`raddr & ~0x7ull`的8字节返回给`rdata`
   // printf("=====read========%llx\n",raddr); 
+  if (raddr >= MEM_BASE && raddr < MEM_BASE+MEM_SIZE) {
+    *rdata = paddr_read(raddr, 8);
+    return;
+  }
   if ((*rd_wr == 1) && (raddr < MEM_BASE || raddr > MEM_BASE+MEM_SIZE)) {
     difftest_skip_ref();
   }
-  if (raddr >= MEM_BASE && raddr < MEM_BASE+MEM_SIZE) {
-    *rdata = paddr_read(raddr, 8);
-  }
+  #ifdef DEVICE
   if ((raddr == 0xa0000048)) {
     if(init_time_flag == 0) {  
       clock_gettime(CLOCK_REALTIME,&origin_time);
@@ -87,6 +87,7 @@ extern "C" void pmem_read(long long raddr, long long *rdata) {
   }
   if(raddr >= FB_BASE && raddr < FB_BASE+FB_SIZE) *rdata = vga_read(raddr, 8);
   if(raddr == 0xa0000100) *rdata = (SCREEN_W << 16 | SCREEN_H);
+  #endif
   // if(raddr == 0xa0000104) {
   //   if(vga_update_flag == 1)   vga_update_flag = 0;
   // }
@@ -118,8 +119,10 @@ extern "C" void pmem_write(long long waddr, long long wdata, char wmask) {
   // printf("=======addr=%llx=====\n",waddr);
   // printf("=======addr的空间分配=%lx=====\n",sizeof(waddr));
   if (waddr >= MEM_BASE && waddr < MEM_BASE+MEM_SIZE) paddr_write(waddr, len, wdata);
+  #ifdef DEVICE
   if(waddr >= FB_BASE && waddr < FB_BASE+FB_SIZE) vga_write(waddr, len, wdata);
   if(waddr == 0xa0000104) vga_update_flag = 1;
+  #endif
   
 }
 

@@ -6,6 +6,14 @@
 #include <stdbool.h>
 #include <string.h>
 #include <cassert>
+#include <time.h>
+#include <sys/time.h>
+
+// #define DIFFTEST 1;
+// #define ITRACE  1;
+// #define WAVE  1;
+#define DEVICE  1;
+
 
 typedef u_int64_t word_t;
 typedef int64_t  sword_t;
